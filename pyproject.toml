@@ -3,14 +3,14 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "istari"
+name = "istari-core"
 version = "0.1.0"
 description = "Infer user intent states from behavioral event streams"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
 authors = [
-    {name = "Istari Contributors"}
+    {name = "Tanay Agrawal"}
 ]
 keywords = ["intent", "analytics", "behavior", "cro", "personalization", "ai"]
 classifiers = [
@@ -45,7 +45,7 @@ Repository = "https://github.com/istari/istari"
 Issues = "https://github.com/istari/istari/issues"
 
 [tool.setuptools]
-packages = ["istari"]
+packages = {find = {}}
 
 [tool.setuptools.package-data]
 istari = ["py.typed"]

@@ -14,6 +14,8 @@ Modern products collect events like:
 - remove from cart
 - time gaps
 - navigation loops
+- rage clicks (Clarity)
+- dead clicks (Clarity)
 
 But downstream systems still reason in crude terms like funnels and conversion rates.
 
@@ -60,13 +62,21 @@ Example intent states:
 ## Installation
 
 ```bash
-pip install istari
+pip install istari-core
+```
+
+For development:
+
+```bash
+git clone https://github.com/istari/istari.git
+cd istari
+pip install -e .
 ```
 
 ## Quick Start
 
 ```python
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from istari.core.events import Event
 from istari.core.session import Session
 from istari.inference.rules import RuleBasedInference
@@ -76,13 +86,13 @@ from istari.inference.heuristics import BrowsingRule, PurchaseReadyRule
 session = Session(
     session_id="session_123",
     user_id="user_456",
-    started_at=datetime.utcnow(),
+    started_at=datetime.now(timezone.utc),
 )
 
 # Add events
 session.add_event(Event(
     event_type="page_view",
-    timestamp=datetime.utcnow(),
+    timestamp=datetime.now(timezone.utc),
     user_id="user_456",
     session_id="session_123",
     properties={"page": "/products"},
@@ -98,6 +108,48 @@ print(f"Intent: {intent_state.state_type}")
 print(f"Confidence: {intent_state.confidence:.2%}")
 ```
 
+## Microsoft Clarity Integration
+
+Istari includes first-class support for Microsoft Clarity behavioral signals. Clarity events are converted into Istari's canonical format and mapped to intent signals:
+
+```python
+from istari.sources.clarity import ClaritySource
+
+# Initialize Clarity source
+clarity_source = ClaritySource()
+
+# Parse Clarity events/exports
+clarity_events = [
+    {
+        "event": "rage_click",
+        "timestamp": 1234567890000,
+        "userId": "user_123",
+        "sessionId": "session_456",
+        "clickCount": 5,
+    },
+    # ... more events
+]
+
+# Parse and extract signals
+events, signals = clarity_source.process(clarity_events)
+
+# Signals are automatically mapped:
+# - rage_click → friction.high
+# - dead_click → intent.confusion
+# - scroll → content_engagement
+# - excessive_hover → hesitation
+```
+
+### Clarity Signal Mappings
+
+| Clarity Signal | Istari Signal | Intent Impact |
+|----------------|---------------|---------------|
+| Rage clicks | `friction.high` | Contributes to `abandonment_risk` |
+| Dead clicks | `intent.confusion` | Contributes to `hesitating` |
+| Scroll depth | `content_engagement` | Contributes to `browsing` |
+| Quick back nav | `dissatisfaction` | Contributes to `abandonment_risk` |
+| Excessive hover | `hesitation` | Contributes to `hesitating` |
+
 ## Architecture
 
 ### Core Modules
@@ -108,7 +160,13 @@ print(f"Confidence: {intent_state.confidence:.2%}")
 - **`signals/`**: Signal extraction (dwell, navigation, comparison, friction, price)
 - **`explainability/`**: Attribution calculation, narrative generation, summaries
 - **`plugins/`**: Plugin system for extending inference capabilities
+- **`sources/`**: Event source integrations (Clarity, etc.)
 - **`integrations/`**: Analytics platform integrations (Mixpanel, Amplitude, Segment)
+
+### Event Sources vs Integrations
+
+- **`sources/`**: Behavioral signal sources (like Clarity) that provide frontend behavioral data
+- **`integrations/`**: Analytics platform integrations for event ingestion
 
 ### Open-Source vs Proprietary
 
@@ -119,6 +177,7 @@ print(f"Confidence: {intent_state.confidence:.2%}")
 - Rule-based inference
 - Explainability primitives
 - Plugin interfaces
+- Clarity integration
 
 **Proprietary extensions (planned):**
 - Learned intent models
@@ -133,6 +192,7 @@ See the `examples/` directory for:
 - `basic_inference.py`: Basic intent inference
 - `ecommerce_session.py`: Full e-commerce session analysis
 - `explain_intent.py`: Intent explanation and narratives
+- `clarity_integration.py`: Microsoft Clarity integration example
 
 ## Documentation
 
@@ -149,4 +209,3 @@ MIT License - see LICENSE file for details.
 ## Contributing
 
 Contributions welcome! Please see our contributing guidelines (coming soon).
-
