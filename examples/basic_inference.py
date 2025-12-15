@@ -1,6 +1,6 @@
 """Basic intent inference example."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from istari.core.events import Event
 from istari.core.session import Session
 from istari.inference.rules import RuleBasedInference
@@ -12,11 +12,11 @@ def main():
     session = Session(
         session_id="session_123",
         user_id="user_456",
-        started_at=datetime.utcnow() - timedelta(minutes=10),
+        started_at=datetime.now(timezone.utc) - timedelta(minutes=10),
     )
     
     # Add some events
-    base_time = datetime.utcnow() - timedelta(minutes=10)
+    base_time = datetime.now(timezone.utc) - timedelta(minutes=10)
     
     events = [
         Event(

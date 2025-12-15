@@ -7,10 +7,14 @@ from istari.core.session import Session
 from istari.core.intent_state import IntentState
 from istari.core.timeline import Timeline
 
+# Sources
+from istari.sources.clarity import ClaritySource
+
 __all__ = [
     "Event",
     "Session",
     "IntentState",
     "Timeline",
+    "ClaritySource",
 ]
 
