@@ -110,12 +110,42 @@ print(f"Confidence: {intent_state.confidence:.2%}")
 
 ## Microsoft Clarity Integration
 
-Istari includes first-class support for Microsoft Clarity behavioral signals. Clarity events are converted into Istari's canonical format and mapped to intent signals:
+Istari includes first-class support for Microsoft Clarity behavioral signals. You can import data either from Clarity's API or from exported data files.
+
+### API Integration
+
+Fetch data directly from Clarity's Data Export API:
 
 ```python
 from istari.sources.clarity import ClaritySource
 
 # Initialize Clarity source
+clarity_source = ClaritySource()
+
+# Get your API key from Clarity project settings:
+# Settings > Data Export > Generate new API token
+api_key = "your-api-key"
+project_id = "your-project-id"
+
+# Fetch from API and process
+events, signals = clarity_source.import_from_api(
+    api_key=api_key,
+    project_id=project_id,
+    start_date="2024-01-01",  # Optional: filter by date range
+    end_date="2024-01-31",    # Optional: filter by date range
+)
+
+print(f"Imported {len(events)} events")
+print(f"Signals: {signals}")
+```
+
+### Manual Data Import
+
+You can also import from exported data:
+
+```python
+from istari.sources.clarity import ClaritySource
+
 clarity_source = ClaritySource()
 
 # Parse Clarity events/exports
@@ -132,13 +162,20 @@ clarity_events = [
 
 # Parse and extract signals
 events, signals = clarity_source.process(clarity_events)
-
-# Signals are automatically mapped:
-# - rage_click → friction.high
-# - dead_click → intent.confusion
-# - scroll → content_engagement
-# - excessive_hover → hesitation
 ```
+
+### Getting Your API Key
+
+1. Go to your Clarity project dashboard
+2. Navigate to **Settings** > **Data Export**
+3. Click **Generate new API token**
+4. Copy the token and use it as your `api_key`
+
+**API Endpoint**: `https://www.clarity.ms/export-data/api/v1/project-live-insights`
+
+**Authentication**: Bearer token in `Authorization` header
+
+See the [Clarity Data Export API documentation](https://learn.microsoft.com/en-us/clarity/setup-and-installation/clarity-data-export-api) for more details.
 
 ### Clarity Signal Mappings
 
@@ -162,11 +199,6 @@ events, signals = clarity_source.process(clarity_events)
 - **`plugins/`**: Plugin system for extending inference capabilities
 - **`sources/`**: Event source integrations (Clarity, etc.)
 - **`integrations/`**: Analytics platform integrations (Mixpanel, Amplitude, Segment)
-
-### Event Sources vs Integrations
-
-- **`sources/`**: Behavioral signal sources (like Clarity) that provide frontend behavioral data
-- **`integrations/`**: Analytics platform integrations for event ingestion
 
 ### Open-Source vs Proprietary
 

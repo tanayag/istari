@@ -85,6 +85,65 @@ class ClarityParser:
         
         return self.parse_batch(events)
     
+    def parse_insight(self, insight: Dict[str, Any]) -> List[Event]:
+        """
+        Parse a Clarity API insight (aggregated metric) into events.
+        
+        Clarity API returns aggregated insights like:
+        {
+            "metricName": "DeadClickCount",
+            "information": [{"sessionsCount": "2", ...}]
+        }
+        
+        This method transforms insights into individual events.
+        
+        Args:
+            insight: Clarity insight dictionary
+        
+        Returns:
+            List of normalized Event objects
+        """
+        from datetime import datetime, timezone
+        
+        metric_name = insight.get("metricName", "unknown")
+        information = insight.get("information", [])
+        
+        events = []
+        
+        # Map metric names to event types
+        metric_to_event_type = {
+            "DeadClickCount": "dead_click",
+            "RageClickCount": "rage_click",
+            "ScrollDepth": "scroll",
+            "QuickBackCount": "navigation",
+            "HoverDuration": "hover",
+        }
+        
+        event_type = metric_to_event_type.get(metric_name, metric_name.lower())
+        
+        # Create events from information array
+        for info in information:
+            # Create a synthetic event from the aggregated data
+            event_data = {
+                "event": event_type,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "metricName": metric_name,
+                "sessionsCount": info.get("sessionsCount", "0"),
+                "pagesViews": info.get("pagesViews", "0"),
+                "sessionsWithMetricPercentage": info.get("sessionsWithMetricPercentage", 0),
+                "sessionsWithoutMetricPercentage": info.get("sessionsWithoutMetricPercentage", 0),
+                "subTotal": info.get("subTotal", "0"),
+            }
+            
+            # Add any additional fields from info
+            for key, value in info.items():
+                if key not in event_data:
+                    event_data[key] = value
+            
+            events.append(self.parse(event_data))
+        
+        return events
+    
     def stream_parse(self, event_iterator: Iterator[Dict[str, Any]]) -> Iterator[Event]:
         """
         Stream parse events from an iterator.

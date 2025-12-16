@@ -1,9 +1,15 @@
 """Clarity event source implementation."""
 
 from typing import List, Dict, Any, Iterator, Optional
+from datetime import datetime, timedelta
 from istari.sources.base import BaseEventSource
 from istari.sources.clarity.parser import ClarityParser
 from istari.sources.clarity.mapper import ClarityMapper
+from istari.sources.clarity.api_client import (
+    ClarityAPIClient,
+    ClarityAPIError,
+    ClarityAuthenticationError,
+)
 from istari.core.events import Event
 
 
@@ -95,4 +101,124 @@ class ClaritySource(BaseEventSource):
             Normalized Event objects
         """
         return self.parser.stream_parse(event_iterator)
+    
+    def fetch_from_api(
+        self,
+        api_key: str,
+        project_id: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        **kwargs
+    ) -> Iterator[Dict[str, Any]]:
+        """
+        Fetch data directly from Clarity API.
+        
+        Args:
+            api_key: Clarity API access token
+            project_id: Clarity project ID (optional)
+            start_date: Start date in YYYY-MM-DD format (optional)
+            end_date: End date in YYYY-MM-DD format (optional)
+            **kwargs: Additional API parameters
+        
+        Yields:
+            Raw Clarity insight data dictionaries
+        
+        Raises:
+            ClarityAuthenticationError: If authentication fails
+            ClarityAPIError: For other API errors
+        
+        Example:
+            >>> source = ClaritySource()
+            >>> for insight in source.fetch_from_api(
+            ...     api_key="your-api-key",
+            ...     project_id="project-123",
+            ...     start_date="2024-01-01",
+            ...     end_date="2024-01-31"
+            ... ):
+            ...     print(insight)
+        """
+        client = ClarityAPIClient(api_key=api_key)
+        return client.fetch_live_insights(
+            project_id=project_id,
+            start_date=start_date,
+            end_date=end_date,
+            **kwargs
+        )
+    
+    def import_from_api(
+        self,
+        api_key: str,
+        project_id: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        **kwargs
+    ) -> tuple[List[Event], Dict[str, Any]]:
+        """
+        Fetch data from Clarity API, parse, and extract signals.
+        
+        This is a convenience method that combines fetch_from_api, parsing, and mapping.
+        
+        Args:
+            api_key: Clarity API access token
+            project_id: Clarity project ID (optional)
+            start_date: Start date in YYYY-MM-DD format (optional)
+            end_date: End date in YYYY-MM-DD format (optional)
+            **kwargs: Additional API parameters
+        
+        Returns:
+            Tuple of (normalized_events, signal_mappings)
+        
+        Raises:
+            ClarityAuthenticationError: If authentication fails
+            ClarityAPIError: For other API errors
+        
+        Example:
+            >>> source = ClaritySource()
+            >>> events, signals = source.import_from_api(
+            ...     api_key="your-api-key",
+            ...     project_id="project-123",
+            ...     start_date="2024-01-01"
+            ... )
+            >>> print(f"Imported {len(events)} events")
+            >>> print(f"Signals: {signals}")
+        """
+        # Fetch raw data from API
+        raw_insights = list(self.fetch_from_api(
+            api_key=api_key,
+            project_id=project_id,
+            start_date=start_date,
+            end_date=end_date,
+            **kwargs
+        ))
+        
+        if not raw_insights:
+            return [], {}
+        
+        # Parse insights into events
+        # Clarity API returns aggregated insights, not individual events
+        # We need to transform them using parse_insight
+        events = []
+        for insight in raw_insights:
+            if isinstance(insight, dict):
+                # Check if this is an aggregated insight (has metricName)
+                if "metricName" in insight:
+                    # Parse as insight (aggregated metric)
+                    insight_events = self.parser.parse_insight(insight)
+                    events.extend(insight_events)
+                else:
+                    # Parse as regular event
+                    events.append(self.parse(insight))
+            elif isinstance(insight, list):
+                # Handle list of insights
+                for item in insight:
+                    if isinstance(item, dict) and "metricName" in item:
+                        insight_events = self.parser.parse_insight(item)
+                        events.extend(insight_events)
+                    else:
+                        events.append(self.parse(item))
+        
+        # Extract signals
+        signals = self.map_to_signals(events)
+        
+        return events, signals
 
